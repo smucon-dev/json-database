@@ -15,6 +15,6 @@ public class SetOperation implements DatabaseOperation {
 
     @Override
     public DatabaseResponse execute() {
-        return database.set(request.getKey(), request.getValue());
+        return database.set(request.getKeys(), request.getValue());
     }
 }

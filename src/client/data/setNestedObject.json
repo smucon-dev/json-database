@@ -1,0 +1,8 @@
+{
+  "type":"set",
+  "key":["person", "hyperloop", "hyperloop1"],
+  "value":{
+    "name":"Hyperloop 1",
+    "speed": 1000
+  }
+}

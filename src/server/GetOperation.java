@@ -15,6 +15,6 @@ public class GetOperation implements DatabaseOperation {
 
     @Override
     public DatabaseResponse execute() {
-        return database.get(request.getKey());
+        return database.get(request.getKeys());
     }
 }

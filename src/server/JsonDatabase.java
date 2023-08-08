@@ -7,6 +7,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -27,10 +28,21 @@ public class JsonDatabase {
         this.dbLocation = dbLocation;
     }
 
-    public DatabaseResponse set(String key, Object value) {
+    public DatabaseResponse set(List keys, Object value) {
         try {
             Map<String, Object> db = loadDB();
-            db.put(key, value);
+            if (keys.size() == 1) {
+                db.put((String) keys.get(0), value);
+            } else {
+                Map nearestParent = findNearestParent(db, keys);
+                List keysToBeInserted = findKeysToBeInserted(db, keys);
+                if (keysToBeInserted.size() == 1 && value instanceof String) {
+                    nearestParent.put(keysToBeInserted.get(0), value);
+                } else {
+                    Map child = buildChildObject(keys, value);
+                    nearestParent.put(keysToBeInserted.get(0), child);
+                }
+            }
             saveDB(db);
             return new DatabaseResponse(OK);
         } catch (FileNotFoundException e) {
@@ -40,10 +52,11 @@ public class JsonDatabase {
         }
     }
 
-    public DatabaseResponse get(String key) {
+    public DatabaseResponse get(List keys) {
         try {
             Map<String, Object> db = loadDB();
-            var response = db.getOrDefault(key, ERROR);
+            var parent = findChildsParent(db, keys);
+            var response = parent.getOrDefault(keys.get(keys.size() - 1), ERROR);
             if (ERROR.equals(response)) {
                 return new DatabaseResponse(response, null, NO_SUCH_KEY);
             } else {
@@ -54,12 +67,14 @@ public class JsonDatabase {
         }
     }
 
-    public DatabaseResponse delete(String key) {
+    public DatabaseResponse delete(List keys) {
         try {
             Map<String, Object> db = loadDB();
-            var value = db.remove(key);
+            Object deletedObj = null;
+            Map childsParent = findChildsParent(db, keys);
+            deletedObj = childsParent.remove(keys.get(keys.size() - 1));
             saveDB(db);
-            return value == null ? new DatabaseResponse(ERROR, null, NO_SUCH_KEY) : new DatabaseResponse(OK);
+            return deletedObj == null ? new DatabaseResponse(ERROR, null, NO_SUCH_KEY) : new DatabaseResponse(OK);
         } catch (FileNotFoundException e) {
             throw new DatabaseError("Cannot open database");
         } catch (IOException e) {
@@ -87,6 +102,40 @@ public class JsonDatabase {
         } finally {
             writeLock.unlock();
         }
+    }
+
+    private Map findChildsParent(Map base, List keys) {
+        if (keys.size() > 1 && base.containsKey(keys.get(0)) && base.get(keys.get(0)) instanceof Map map) {
+            return findChildsParent(map, keys.subList(1, keys.size()));
+        } else if (base.containsKey(keys.get(0))) {
+            return base;
+        } else {
+            return Map.of();
+        }
+    }
+
+    private Map findNearestParent(Map base, List keys) {
+        if (keys.size() > 1 && base.containsKey(keys.get(0)) && base.get(keys.get(0)) instanceof Map map) {
+            return findNearestParent(map, keys.subList(1, keys.size()));
+        } else {
+            return base;
+        }
+    }
+
+    private List findKeysToBeInserted(Map base, List keys) {
+        if (keys.size() > 1 && base.containsKey(keys.get(0)) && base.get(keys.get(0)) instanceof Map map) {
+            return findKeysToBeInserted(map, keys.subList(1, keys.size()));
+        } else {
+            return keys;
+        }
+    }
+
+    private Map buildChildObject(List keys, Object value) {
+        Map previousChild = Map.of(keys.get(keys.size() - 1), value);
+        for (int i = keys.size() - 2; i > 1; i--) {
+            previousChild = Map.of(keys.get(i), previousChild);
+        }
+        return previousChild;
     }
 
 }

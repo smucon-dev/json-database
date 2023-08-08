@@ -15,6 +15,6 @@ public class DeleteOperation implements DatabaseOperation {
 
     @Override
     public DatabaseResponse execute() {
-        return database.delete(request.getKey());
+        return database.delete(request.getKeys());
     }
 }
